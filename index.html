@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SiamBus Express - ระบบดูรอบและจองคิวรถบัสออนไลน์</title>
+  <meta name="description"
+    content="ระบบดูรอบและจองคิวรถบัสออนไลน์ ตรวจสอบรอบรถวันนี้และวันพรุ่งนี้ พร้อมระบบชำระเงิน PromptPay QR เสมือนจริง และระบบรายงานการบริการ">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Sarabun:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Leaflet.js Map CSS & JS CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  <!-- QRCode.js Library CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+
+<body>
+  <!-- Header / Navigation -->
+  <header class="navbar" id="main-nav">
+    <div class="container nav-container">
+      <div class="nav-brand" onclick="navigateTo('home')">
+        <div class="logo-icon"><i class="fa-solid fa-bus-simple"></i></div>
+        <div class="logo-text">
+          <span class="brand-title">SIAMBUS</span>
+          <span class="brand-sub">ระบบจองคิวและตั๋วรถบัสอัจฉริยะ</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu" id="nav-menu">
+        <a href="#schedule-section" class="nav-link active" onclick="switchMainTab('today')"><i
+            class="fa-regular fa-clock"></i> รอบรถวันนี้/พรุ่งนี้</a>
+        <a href="#live-tracking-section" class="nav-link" onclick="scrollToGpsTracker()"><i
+            class="fa-solid fa-map-location-dot"></i> ติดตามรถสด (Live GPS)</a>
+        <a href="#booking-tracking-section" class="nav-link"><i class="fa-solid fa-ticket"></i> ตรวจสอบบัตรคิว</a>
+        <a href="#review-section" class="nav-link"><i class="fa-solid fa-star"></i> รีวิวผู้โดยสาร</a>
+        <a href="#report-section" class="nav-link"><i class="fa-solid fa-bullhorn"></i> รายงานพฤติกรรม/ข้อเสนอแนะ</a>
+        <a href="#contact-section" class="nav-link"><i class="fa-solid fa-phone"></i> ติดต่อเรา</a>
+      </nav>
+
+      <div class="nav-actions">
+        <div id="user-logged-out-view" class="auth-btns">
+          <button class="btn btn-outline" onclick="openAuthModal('login')"><i class="fa-regular fa-user"></i>
+            เข้าสู่ระบบ</button>
+          <button class="btn btn-primary" onclick="openAuthModal('register')">ลงทะเบียน</button>
+        </div>
+        <div id="user-logged-in-view" class="user-profile-badge d-none">
+          <div class="user-avatar" id="nav-user-avatar">U</div>
+          <div class="user-info">
+            <span class="user-name" id="nav-user-name">ผู้โดยสาร</span>
+            <div class="user-points-badge"><i class="fa-solid fa-coins text-warning"></i> <span id="nav-user-points">50</span> แต้ม</div>
+          </div>
+          <button class="btn-icon" title="ออกจากระบบ" onclick="logout()"><i
+              class="fa-solid fa-right-from-bracket"></i></button>
+        </div>
+        <button class="btn btn-admin-toggle" id="btn-admin-portal" onclick="openAdminPortal()"><i
+            class="fa-solid fa-shield-halved"></i> แอดมิน</button>
+        <button class="mobile-toggle" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero & Route Search -->
+  <section class="hero-section">
+    <div class="container hero-container">
+      <div class="hero-content">
+        <div class="badge-hero"><i class="fa-solid fa-sparkles"></i> ระบบคิวและรอบรถบัสมาตรฐานความปลอดภัยสูง</div>
+        <h1 class="hero-title">เช็กรอบรถ จองคิวรวดเร็ว <br><span class="gradient-text">สะดวก ปลอดภัย ราคาเป็นธรรม</span>
+        </h1>
+        <p class="hero-desc">ดูรอบเวลาเดินทางของวันนี้และวันพรุ่งนี้ได้แบบเรียลไทม์ พร้อมระบบชำระเงิน PromptPay QR
+          เสมือนจริง ออกบัตรคิวทันที</p>
+      </div>
+
+      <!-- Quick Search Card -->
+      <div class="search-box-card">
+        <div class="search-grid">
+          <div class="input-group">
+            <label><i class="fa-solid fa-location-dot text-primary"></i> สถานีต้นทาง</label>
+            <select id="search-origin" class="form-control">
+              <option value="กรุงเทพฯ (หมอชิต 2)">กรุงเทพฯ (หมอชิต 2)</option>
+              <option value="กรุงเทพฯ (สายใต้ใหม่)">กรุงเทพฯ (สายใต้ใหม่)</option>
+              <option value="สถานีขนส่งผู้โดยสาร จ.เชียงใหม่">เชียงใหม่ (อาเขต 3)</option>
+              <option value="สถานีขนส่งผู้โดยสาร จ.ขอนแก่น">ขอนแก่น (บขส.3)</option>
+              <option value="สถานีขนส่งผู้โดยสาร จ.นครราชสีมา">นครราชสีมา (บขส.2)</option>
+              <option value="สถานีขนส่งผู้โดยสาร จ.ภูเก็ต">ภูเก็ต (บขส.2)</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label><i class="fa-solid fa-flag-checkered text-success"></i> สถานีปลายทาง</label>
+            <select id="search-destination" class="form-control">
+              <option value="สถานีขนส่งผู้โดยสาร จ.เชียงใหม่">เชียงใหม่ (อาเขต 3)</option>
+              <option value="สถานีขนส่งผู้โดยสาร จ.ขอนแก่น">ขอนแก่น (บขส.3)</option>
+              <option value="สถานีขนส่งผู้โดยสาร จ.นครราชสีมา">นครราชสีมา (บขส.2)</option>
+              <option value="สถานีขนส่งผู้โดยสาร จ.ภูเก็ต">ภูเก็ต (บขส.2)</option>
+              <option value="กรุงเทพฯ (หมอชิต 2)">กรุงเทพฯ (หมอชิต 2)</option>
+              <option value="กรุงเทพฯ (สายใต้ใหม่)">กรุงเทพฯ (สายใต้ใหม่)</option>
+            </select>
+          </div>
+
+          <div class="input-group">
+            <label><i class="fa-regular fa-calendar-days text-warning"></i> วันที่เดินทาง</label>
+            <input type="date" id="search-travel-date" class="form-control">
+          </div>
+
+          <div class="input-group">
+            <label><i class="fa-solid fa-user-group text-info"></i> จำนวนผู้โดยสาร</label>
+            <select id="search-passengers" class="form-control">
+              <option value="1">1 ท่าน</option>
+              <option value="2">2 ท่าน</option>
+              <option value="3">3 ท่าน</option>
+              <option value="4">4 ท่าน</option>
+            </select>
+          </div>
+        </div>
+        <div class="search-actions">
+          <button class="btn btn-primary btn-search" onclick="filterSchedules()"><i
+              class="fa-solid fa-magnifying-glass"></i> ค้นหารอบรถ</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Schedule Section (Today / Tomorrow Tabs) -->
+  <section class="section schedule-section" id="schedule-section">
+    <div class="container">
+      <div class="section-header text-center">
+        <h2 class="section-title">ตารางรอบรถและสถานะคิว</h2>
+        <p class="section-subtitle">ตรวจสอบจำนวนรอบรถ ลำดับรอบ เวลาออกเดินทาง และที่นั่งว่างประจำวัน</p>
+      </div>
+
+      <!-- Schedule Tab Controls -->
+      <div class="schedule-tabs-wrapper">
+        <div class="schedule-tabs">
+          <button class="tab-btn active" id="tab-today-btn" onclick="switchMainTab('today')">
+            <div class="tab-icon"><i class="fa-solid fa-calendar-day"></i></div>
+            <div class="tab-info">
+              <span class="tab-name">รอบรถวันนี้</span>
+              <span class="tab-date" id="today-date-label">กำลังโหลด...</span>
+            </div>
+            <span class="tab-badge" id="today-count-badge">8 รอบ</span>
+          </button>
+
+          <button class="tab-btn" id="tab-tomorrow-btn" onclick="switchMainTab('tomorrow')">
+            <div class="tab-icon"><i class="fa-solid fa-calendar-plus"></i></div>
+            <div class="tab-info">
+              <span class="tab-name">รอบรถวันพรุ่งนี้</span>
+              <span class="tab-date" id="tomorrow-date-label">กำลังโหลด...</span>
+            </div>
+            <span class="tab-badge" id="tomorrow-count-badge">10 รอบ</span>
+          </button>
+        </div>
+
+        <div class="schedule-summary-bar">
+          <div class="summary-item">
+            <i class="fa-solid fa-road"></i>
+            <span>เส้นทาง: <strong id="current-route-display">ทุกเส้นทางหลัก</strong></span>
+          </div>
+          <div class="summary-item">
+            <i class="fa-solid fa-bus"></i>
+            <span>จำนวนรอบทั้งหมด: <strong id="current-total-trips">8 รอบ</strong></span>
+          </div>
+          <div class="summary-item">
+            <i class="fa-solid fa-circle-check text-success"></i>
+            <span>เปิดรับจองออนไลน์: <strong>ตลอด 24 ชม.</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schedule Cards List -->
+      <div class="schedule-list" id="schedule-cards-container">
+        <!-- Rendered dynamically by JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Bus Seat & Queue Booking Modal -->
+  <div class="modal-overlay" id="booking-modal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-badge"><i class="fa-solid fa-ticket"></i> ขั้นตอนการจองคิวและเลือกที่นั่ง</span>
+          <h3 class="modal-title" id="booking-modal-trip-title">รอบที่ 1/8 : 06:30 น.</h3>
+        </div>
+        <button class="btn-close-modal" onclick="closeBookingModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Booking Steps Progress -->
+        <div class="steps-nav">
+          <div class="step-item active" id="step-indicator-1">
+            <div class="step-num">1</div>
+            <span class="step-title">เลือกที่นั่ง</span>
+          </div>
+          <div class="step-divider"></div>
+          <div class="step-item" id="step-indicator-2">
+            <div class="step-num">2</div>
+            <span class="step-title">ข้อมูลผู้จอง & วันหมดอายุ</span>
+          </div>
+          <div class="step-divider"></div>
+          <div class="step-item" id="step-indicator-3">
+            <div class="step-num">3</div>
+            <span class="step-title">ชำระเงิน PromptPay QR</span>
+          </div>
+          <div class="step-divider"></div>
+          <div class="step-item" id="step-indicator-4">
+            <div class="step-num">4</div>
+            <span class="step-title">รับบัตรคิว/ตั๋ว</span>
+          </div>
+        </div>
+
+        <!-- Step 1: Bus Seat Layout -->
+        <div class="step-content" id="booking-step-1">
+          <div class="seat-selection-container">
+            <div class="seat-legend">
+              <div class="legend-item"><span class="seat-demo available"></span> ว่าง</div>
+              <div class="legend-item"><span class="seat-demo selected"></span> กำลังเลือก</div>
+              <div class="legend-item"><span class="seat-demo occupied"></span> จองแล้ว</div>
+              <div class="legend-item"><span class="seat-demo vip"></span> VIP เบาะพิเศษ</div>
+            </div>
+
+            <!-- Bus Body Layout -->
+            <div class="bus-container">
+              <div class="bus-front">
+                <div class="driver-seat"><i class="fa-solid fa-steering-wheel"></i> พนักงานขับรถ</div>
+                <div class="bus-door"><i class="fa-solid fa-arrow-right-to-bracket"></i> ประตูขึ้น-ลง</div>
+              </div>
+
+              <div class="bus-seat-grid" id="bus-seat-grid">
+                <!-- Dynamically generated seats -->
+              </div>
+            </div>
+
+            <div class="selected-seat-bar">
+              <div>ที่นั่งที่เลือก: <strong id="selected-seats-text" class="text-primary">-</strong></div>
+              <div>ราคารวม: <strong id="selected-total-price" class="text-success">฿0.00</strong></div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeBookingModal()">ยกเลิก</button>
+            <button class="btn btn-primary" id="btn-to-step-2" onclick="goToStep(2)" disabled>ถัดไป: ข้อมูลผู้โดยสาร <i
+                class="fa-solid fa-arrow-right"></i></button>
+          </div>
+        </div>
+
+        <!-- Step 2: Passenger Details, Dates & Expiry Calculation -->
+        <div class="step-content d-none" id="booking-step-2">
+          <div class="booking-summary-box">
+            <div class="summary-header">
+              <i class="fa-solid fa-circle-info text-primary"></i>
+              <h4>ข้อมูลรอบรถและเงื่อนไขเวลาบัตรคิว</h4>
+            </div>
+            <div class="summary-details-grid">
+              <div><strong>เส้นทาง:</strong> <span id="summary-route-text">-</span></div>
+              <div><strong>รอบที่ / เวลา:</strong> <span id="summary-trip-text">-</span></div>
+              <div><strong>ประเภทรถ:</strong> <span id="summary-bustype-text">-</span></div>
+              <div><strong>ที่นั่งที่เลือก:</strong> <span id="summary-seats-text">-</span></div>
+              <div><strong>วันที่เริ่มจอง:</strong> <span id="summary-booking-start-date"
+                  class="text-info fw-bold">-</span></div>
+              <div><strong>วันที่/เวลาบัตรคิวหมดอายุ:</strong> <span id="summary-queue-expiry-date"
+                  class="text-danger fw-bold">-</span></div>
+            </div>
+            <div class="expiry-notice-badge">
+              <i class="fa-solid fa-hourglass-half"></i> เมื่อกดดำเนินการต่อ คุณจะมีเวลา <strong>15 นาที</strong>
+              ในการชำระเงิน หากเกินเวลา บัตรคิวและที่นั่งจะถูกยกเลิกอัตโนมัติ
+            </div>
+          </div>
+
+          <form id="passenger-info-form" onsubmit="event.preventDefault(); goToStep(3);">
+            <div class="form-row">
+              <div class="form-group">
+                <label>ชื่อ-นามสกุล ผู้โดยสารหลัก <span class="text-danger">*</span></label>
+                <input type="text" id="cust-fullname" class="form-control" required placeholder="นาย สมชาย ใจดี">
+              </div>
+              <div class="form-group">
+                <label>เบอร์โทรศัพท์ติดต่อ <span class="text-danger">*</span></label>
+                <input type="tel" id="cust-phone" class="form-control" required placeholder="081-234-5678"
+                  pattern="[0-9]{9,10}">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>อีเมลสำหรับรับตั๋วและบัตรคิว <span class="text-danger">*</span></label>
+                <input type="email" id="cust-email" class="form-control" required placeholder="somchai@example.com">
+              </div>
+              <div class="form-group">
+                <label>เลขบัตรประชาชน / Passport (สำหรับประกันอุบัติเหตุ)</label>
+                <input type="text" id="cust-idcard" class="form-control" placeholder="1-xxxx-xxxxx-xx-x">
+              </div>
+            </div>
+
+            <div class="price-breakdown-card">
+              <h5>สรุปยอดค่าบริการที่เป็นธรรม (Fair Pricing)</h5>
+              <div class="price-row">
+                <span>ค่าโดยสาร (<span id="price-seat-count">0</span> ที่นั่ง)</span>
+                <span id="price-subtotal">฿0.00</span>
+              </div>
+              <div class="price-row">
+                <span>ประกันภัยอุบัติเหตุการเดินทางฟรี</span>
+                <span class="text-success">฿0.00 (รวมแล้ว)</span>
+              </div>
+              <div class="price-row">
+                <span>ค่าธรรมเนียมการจองออนไลน์</span>
+                <span class="text-success">฿0.00 (ฟรี)</span>
+              </div>
+              <div class="price-row points-row" style="background: #fffbeb; padding: 8px 12px; border-radius: 8px; border: 1px solid #fef3c7;">
+                <span class="text-warning font-semibold"><i class="fa-solid fa-coins text-warning"></i> แต้มสะสมที่จะได้รับ (SiamBus Points)</span>
+                <strong id="price-points-earned" class="text-warning font-bold">+0 แต้ม</strong>
+              </div>
+              <div class="price-row total-row">
+                <span>ยอดชำระสุทธิ</span>
+                <span id="price-grand-total" class="text-primary">฿0.00</span>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline" onclick="goToStep(1)"><i class="fa-solid fa-arrow-left"></i>
+                ย้อนกลับ</button>
+              <button type="submit" class="btn btn-primary">ไปหน้าชำระเงิน PromptPay QR <i
+                  class="fa-solid fa-arrow-right"></i></button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 3: Realistic PromptPay QR Code Payment Modal -->
+        <div class="step-content d-none" id="booking-step-3">
+          <div class="promptpay-payment-container">
+            <!-- PromptPay Blue Card Box -->
+            <div class="promptpay-card">
+              <div class="promptpay-header">
+                <div class="promptpay-logo-badge">
+                  <div class="thai-qr-tag">THAI QR PAYMENT</div>
+                  <div class="promptpay-tag">พร้อมเพย์</div>
+                </div>
+                <div class="bank-tag"><i class="fa-solid fa-building-columns"></i> ชำระเงินได้ทุกธนาคาร</div>
+              </div>
+
+              <div class="promptpay-merchant-info">
+                <div class="merchant-name">บจก. สยามบัส ทรานสปอร์ต (คิวบัส)</div>
+                <div class="merchant-id">พร้อมเพย์ ID: <span>089-123-4567</span> (Biller ID: 0105559012345)</div>
+              </div>
+
+              <!-- Generated QR Canvas Container -->
+              <div class="qr-canvas-box">
+                <div id="promptpay-qr-code"></div>
+                <div class="qr-scan-hint"><i class="fa-solid fa-camera"></i> สแกนด้วยแอปพลิเคชันธนาคารทุกแห่ง</div>
+              </div>
+
+              <div class="promptpay-amount-box">
+                <span class="amount-label">จำนวนเงินที่ต้องชำระ</span>
+                <div class="amount-val" id="promptpay-amount-display">฿350.00</div>
+              </div>
+
+              <div class="countdown-timer-box">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>กรุณาชำระภายใน: <strong id="qr-timer-display" class="text-danger">14:59</strong> นาที</span>
+              </div>
+
+              <div class="promptpay-ref-info">
+                <div>รหัสการจอง: <strong id="pp-booking-ref">SB-20260901-001</strong></div>
+                <div>วันที่เริ่มจอง: <span id="pp-start-time">01/09/2026 22:52</span></div>
+                <div>หมดอายุ: <span id="pp-expire-time" class="text-danger">01/09/2026 23:07</span></div>
+              </div>
+            </div>
+
+            <!-- Payment Simulation & Verification Action -->
+            <div class="payment-action-card">
+              <h4><i class="fa-solid fa-receipt text-primary"></i> ยืนยันการชำระเงิน</h4>
+              <p class="text-muted">ระบบจะจำลองการตรวจสอบสลิปการโอนเงินอัตโนมัติ</p>
+
+              <div class="form-group mb-3">
+                <label><i class="fa-solid fa-cloud-arrow-up"></i> แนบภาพสลิปโอนเงิน (จำลอง)</label>
+                <input type="file" id="slip-file-input" class="form-control" accept="image/*">
+              </div>
+
+              <div class="demo-payment-buttons">
+                <button class="btn btn-success btn-block" onclick="simulatePaymentSuccess()">
+                  <i class="fa-solid fa-circle-check"></i> ยืนยันว่าชำระเงินแล้ว (จำลองสลิปผ่าน)
+                </button>
+                <button class="btn btn-outline btn-sm btn-block mt-2" onclick="downloadQRCode()">
+                  <i class="fa-solid fa-download"></i> บันทึกภาพ QR พร้อมเพย์
+                </button>
+              </div>
+
+              <div class="security-badge mt-3">
+                <i class="fa-solid fa-shield-check text-success"></i> ธุรกรรมปลอดภัย เข้ารหัสมาตรฐาน EMVCo Thai QR
+                Payment
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" onclick="goToStep(2)"><i class="fa-solid fa-arrow-left"></i>
+              ย้อนกลับ</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Digital Queue Ticket (Boarding Pass) -->
+        <div class="step-content d-none" id="booking-step-4">
+          <div class="ticket-wrapper">
+            <div class="success-banner">
+              <i class="fa-solid fa-circle-check text-success"></i>
+              <h3>การจองคิวและออกตั๋วสำเร็จ!</h3>
+              <p>ระบบได้ส่งสำเนาบัตรคิวไปยังอีเมลของท่านเรียบร้อยแล้ว พร้อมมอบแต้มสะสม <strong class="text-warning" id="success-points-banner">+84 SiamBus Points</strong></p>
+            </div>
+
+            <!-- Boarding Pass Card -->
+            <div class="boarding-pass" id="printable-boarding-pass">
+              <div class="pass-header">
+                <div class="pass-brand">
+                  <i class="fa-solid fa-bus"></i> SIAMBUS EXPRESS
+                </div>
+                <div class="pass-type-badge" id="ticket-bus-type">VIP CLASS</div>
+              </div>
+
+              <div class="pass-body">
+                <div class="pass-main-info">
+                  <div class="queue-big-box">
+                    <span class="queue-label">ลำดับคิว</span>
+                    <div class="queue-number" id="ticket-queue-number">Q-01</div>
+                  </div>
+
+                  <div class="pass-route-info">
+                    <div class="route-point">
+                      <span class="point-label">ต้นทาง</span>
+                      <h4 id="ticket-origin">กรุงเทพฯ (หมอชิต 2)</h4>
+                      <span class="point-time" id="ticket-dept-time">06:30 น.</span>
+                    </div>
+                    <div class="route-arrow">
+                      <i class="fa-solid fa-arrow-right-long"></i>
+                      <span id="ticket-round-number" class="badge-round">รอบที่ 1/8</span>
+                    </div>
+                    <div class="route-point">
+                      <span class="point-label">ปลายทาง</span>
+                      <h4 id="ticket-destination">เชียงใหม่</h4>
+                      <span class="point-time" id="ticket-arr-time">15:30 น.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pass-details-grid">
+                  <div>
+                    <span class="detail-label">ชื่อผู้โดยสาร</span>
+                    <span class="detail-val" id="ticket-passenger-name">นาย สมชาย ใจดี</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">หมายเลขที่นั่ง</span>
+                    <span class="detail-val text-primary fw-bold" id="ticket-seat-no">A1</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">วันที่เดินทาง</span>
+                    <span class="detail-val" id="ticket-travel-date">01 ก.ย. 2026</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">ชานชาลา (Platform)</span>
+                    <span class="detail-val" id="ticket-platform">ชานชาลาที่ 4</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">แต้มสะสมที่ได้รับ</span>
+                    <span class="detail-val text-warning fw-bold" id="ticket-points-earned"><i class="fa-solid fa-coins"></i> +84 แต้ม</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">วันที่เริ่มจอง</span>
+                    <span class="detail-val" id="ticket-start-date">01/09/2026 22:52</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">วันที่ตั๋วหมดอายุ</span>
+                    <span class="detail-val text-danger" id="ticket-expire-date">01/09/2026 23:07</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">สถานะการชำระเงิน</span>
+                    <span class="detail-val badge-paid"><i class="fa-solid fa-check"></i> ชำระเงินแล้ว
+                      (PromptPay)</span>
+                  </div>
+                  <div>
+                    <span class="detail-label">รหัสอ้างอิงตั๋ว (Ref)</span>
+                    <span class="detail-val font-mono" id="ticket-ref-code">SB-20260901-084</span>
+                  </div>
+                </div>
+
+                <div class="pass-footer">
+                  <div class="barcode-simulator">
+                    <div class="barcode-lines">||||| | |||| ||| ||||| || |||||| ||||| |||</div>
+                    <span class="barcode-num" id="ticket-barcode-num">SB9823472910</span>
+                  </div>
+                  <div class="pass-note">
+                    *กรุณาแสดงบัตรคิวนี้ก่อนขึ้นรถ 15 นาที ณ ชานชาลา
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ticket-actions">
+              <button class="btn btn-primary" onclick="window.print()"><i class="fa-solid fa-print"></i> พิมพ์บัตรคิว / บันทึก PDF</button>
+              <button class="btn btn-gps-live" onclick="trackCurrentBookedBus()"><i class="fa-solid fa-satellite-dish"></i> 🛰️ ติดตามตำแหน่ง GPS รถรอบนี้</button>
+              <button class="btn btn-warning" onclick="openReviewModalForCurrentBooking()"><i class="fa-solid fa-star"></i> ⭐ เขียนรีวิวรับเพิ่ม 20 แต้ม</button>
+              <button class="btn btn-outline" onclick="closeBookingModal()"><i class="fa-solid fa-house"></i> กลับสู่หน้าหลัก</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real-Time GPS Bus Tracking Section -->
+  <section class="section gps-tracking-section" id="live-tracking-section">
+    <div class="container">
+      <div class="section-header text-center">
+        <div class="badge-live-gps"><span class="pulse-dot"></span> LIVE SATELLITE & TELEMATICS GPS</div>
+        <h2 class="section-title">ระบบตรวจสอบติดตามรถบัสแบบสด (Real-Time GPS Tracking)</h2>
+        <p class="section-subtitle">ตรวจสอบพิกัด GPS ความเร็ว ระยะทาง และเวลาที่คาดว่าจะถึงของรถบัสแต่ละคันบนแผนที่สดแบบเรียลไทม์</p>
+      </div>
+
+      <!-- GPS Top Controls Bar -->
+      <div class="gps-control-bar">
+        <div class="gps-selector-group">
+          <label><i class="fa-solid fa-bus text-primary"></i> เลือกรอบรถที่ต้องการติดตาม:</label>
+          <select id="gps-trip-select" class="form-control gps-select" onchange="changeGpsTrackedTrip(this.value)">
+            <!-- Populated dynamically via JS -->
+          </select>
+        </div>
+
+        <div class="gps-status-indicators">
+          <div class="gps-indicator online">
+            <i class="fa-solid fa-satellite"></i> <span>GPS: 12 Sats (พิกัดแม่นยำ)</span>
+          </div>
+          <div class="gps-indicator telematics">
+            <i class="fa-solid fa-tower-broadcast"></i> <span>5G Telematics Online</span>
+          </div>
+          <div class="gps-indicator clock">
+            <i class="fa-regular fa-clock"></i> <span id="gps-live-clock">--:--:--</span>
+          </div>
+        </div>
+
+        <div class="gps-action-buttons">
+          <button class="btn btn-sm btn-outline-gps" id="btn-center-bus" onclick="centerMapOnCurrentBus()" title="จัดกึ่งกลางแผนที่ไปที่ตำแหน่งรถ">
+            <i class="fa-solid fa-crosshairs"></i> ล็อกมุมกล้อง
+          </button>
+          <div class="sim-speed-btn-group">
+            <span class="sim-label"><i class="fa-solid fa-bolt"></i> โหมดจำลอง:</span>
+            <button class="btn-sim-speed active" onclick="setGpsSimSpeed(1)" id="sim-spd-1" title="ความเร็วปกติ 1x">1x</button>
+            <button class="btn-sim-speed" onclick="setGpsSimSpeed(5)" id="sim-spd-5" title="เร่งเวลา 5x">5x</button>
+            <button class="btn-sim-speed" onclick="setGpsSimSpeed(20)" id="sim-spd-20" title="เร่งเวลา 20x">20x</button>
+          </div>
+          <button class="btn btn-sm btn-primary-gps" onclick="refreshGpsSignal()" title="รีเฟรชสัญญาณ">
+            <i class="fa-solid fa-rotate"></i> รีเฟรช
+          </button>
+        </div>
+      </div>
+
+      <!-- GPS Main Grid (Map + Telemetry Dashboard) -->
+      <div class="gps-main-grid">
+        <!-- Left: Interactive Map Container -->
+        <div class="gps-map-wrapper">
+          <div id="live-gps-map" class="live-map-container"></div>
+          
+          <!-- Map Floating Badges & Legend -->
+          <div class="map-floating-header">
+            <div class="live-status-pill">
+              <span class="live-pulse"></span> <strong id="map-trip-badge">รอบที่ 1/8 : กรุงเทพฯ ➔ เชียงใหม่</strong>
+            </div>
+            <div class="road-location-pill" id="map-road-name">
+              <i class="fa-solid fa-location-dot text-danger"></i> ถ.พหลโยธิน กม. 248 จ.นครสวรรค์
+            </div>
+          </div>
+
+          <div class="map-floating-legend">
+            <div class="legend-chip"><span class="legend-color-dot bus"></span> รถบัสปัจจุบัน</div>
+            <div class="legend-chip"><span class="legend-color-dot passed"></span> วิ่งผ่านมาแล้ว</div>
+            <div class="legend-chip"><span class="legend-color-dot remain"></span> เส้นทางข้างหน้า</div>
+            <div class="legend-chip"><span class="legend-color-dot stop"></span> จุดพักรถ/สถานี</div>
+          </div>
+        </div>
+
+        <!-- Right: Telemetry Dashboard HUD -->
+        <div class="gps-telemetry-hud">
+          <!-- Vehicle & Driver Card -->
+          <div class="hud-card hud-bus-profile">
+            <div class="hud-bus-header">
+              <div class="bus-icon-circle"><i class="fa-solid fa-bus"></i></div>
+              <div class="bus-main-meta">
+                <h4 id="hud-trip-name">กรุงเทพฯ ➔ เชียงใหม่</h4>
+                <div class="hud-sub-tags">
+                  <span class="badge-tag vip" id="hud-trip-type">VIP 24 ที่นั่ง</span>
+                  <span class="badge-tag dark" id="hud-trip-plate"><i class="fa-solid fa-car"></i> 10-8841 กทม.</span>
+                </div>
+              </div>
+            </div>
+            <div class="driver-telemetry-row">
+              <div class="driver-item">
+                <i class="fa-solid fa-id-badge text-primary"></i>
+                <div>
+                  <small>พนักงานขับรถ</small>
+                  <strong id="hud-driver-name">นาย สมพร สุขเกษม</strong>
+                </div>
+              </div>
+              <div class="driver-item">
+                <i class="fa-solid fa-shield-check text-success"></i>
+                <div>
+                  <small>พฤติกรรมการขับ</small>
+                  <strong class="text-success">ปลอดภัยดีเยี่ยม</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-Time Speedometer & Safety HUD -->
+          <div class="hud-card hud-speedometer-box">
+            <div class="speed-flex">
+              <div class="speed-number-wrap">
+                <span class="speed-val" id="hud-speed-val">82</span>
+                <span class="speed-unit">กม./ชม.</span>
+              </div>
+              <div class="speed-dial-status">
+                <div class="speed-status-badge text-success">
+                  <i class="fa-solid fa-circle-check"></i> ความเร็วในเกณฑ์มาตรฐาน
+                </div>
+                <div class="speed-bar-track">
+                  <div class="speed-bar-fill" id="hud-speed-bar" style="width: 68%;"></div>
+                </div>
+                <div class="speed-limit-note">จำกัดความเร็วไม่เกิน 90 กม./ชม. ตามมาตรฐานกรมการขนส่ง</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress & ETA Grid -->
+          <div class="hud-card hud-progress-card">
+            <div class="progress-info-row">
+              <span>ความคืบหน้าการเดินทาง</span>
+              <strong class="text-primary" id="hud-progress-percent">62%</strong>
+            </div>
+            <div class="route-progress-bar">
+              <div class="route-progress-fill" id="hud-route-progress-bar" style="width: 62%;"></div>
+            </div>
+            
+            <div class="eta-metrics-grid">
+              <div class="eta-metric-box">
+                <small><i class="fa-solid fa-flag-checkered text-danger"></i> ถึงปลายทางประมาณ</small>
+                <div class="metric-val text-primary" id="hud-eta-time">15:30 น.</div>
+                <div class="metric-sub" id="hud-eta-remain">เหลืออีก ~ 3 ชม. 15 นาที</div>
+              </div>
+              <div class="eta-metric-box">
+                <small><i class="fa-solid fa-road text-info"></i> ระยะทางคงเหลือ</small>
+                <div class="metric-val text-info" id="hud-dist-remain">265 กม.</div>
+                <div class="metric-sub" id="hud-dist-total">จากทั้งหมด 700 กม.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Next Checkpoint / Rest Stop Card -->
+          <div class="hud-card hud-next-stop-card">
+            <div class="next-stop-header">
+              <i class="fa-solid fa-mug-hot text-warning"></i>
+              <div>
+                <small>จุดแวะพัก / สถานีถัดไป</small>
+                <h5 id="hud-next-stop-name">จุดพักรถ ปตท. อินทร์บุรี (สิงห์บุรี)</h5>
+              </div>
+            </div>
+            <div class="next-stop-meta">
+              <span id="hud-next-stop-eta"><i class="fa-regular fa-clock"></i> อีกประมาณ 22 นาที</span>
+              <span id="hud-next-stop-dist"><i class="fa-solid fa-location-arrow"></i> 28 กม.</span>
+              <span class="badge-rest"><i class="fa-solid fa-utensils"></i> พักรถ 20 นาที</span>
+            </div>
+          </div>
+
+          <!-- Sensors / Environment Card -->
+          <div class="hud-card hud-sensors-grid">
+            <div class="sensor-pill">
+              <i class="fa-solid fa-snowflake text-info"></i>
+              <div>
+                <small>อุณหภูมิห้องโดยสาร</small>
+                <strong id="hud-cabin-temp">23.2 °C</strong>
+              </div>
+            </div>
+            <div class="sensor-pill">
+              <i class="fa-solid fa-users text-primary"></i>
+              <div>
+                <small>ผู้โดยสารบนรถ</small>
+                <strong id="hud-passenger-count">21 / 24 คน</strong>
+              </div>
+            </div>
+            <div class="sensor-pill">
+              <i class="fa-solid fa-signal text-success"></i>
+              <div>
+                <small>พิกัด GPS ละติจูด/ลองจิจูด</small>
+                <strong id="hud-latlng-coords" class="font-mono">15.7047, 100.1371</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Route Milestones & Checkpoints Stepper -->
+      <div class="gps-route-timeline-card mt-4">
+        <h4 class="timeline-title"><i class="fa-solid fa-route text-primary"></i> ลำดับจุดจอดและสถานีตามเส้นทางเดินรถ</h4>
+        <div class="route-milestones-stepper" id="gps-milestones-container">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Booking & Queue Tracking Section -->
+  <section class="section bg-light" id="booking-tracking-section">
+    <div class="container">
+      <div class="section-header text-center">
+        <h2 class="section-title">ตรวจสอบสถานะบัตรคิวและการจอง</h2>
+        <p class="section-subtitle">กรอกรหัสการจอง หรือเบอร์โทรศัพท์ เพื่อดูบัตรคิวและเวลาหมดอายุ</p>
+      </div>
+
+      <div class="tracking-search-box">
+        <div class="input-group-flex">
+          <input type="text" id="track-search-input" class="form-control"
+            placeholder="กรอกรหัสการจอง เช่น SB-20260901-001 หรือ เบอร์โทรศัพท์">
+          <button class="btn btn-primary" onclick="searchTicket()"><i class="fa-solid fa-search"></i> ค้นหาตั๋ว</button>
+        </div>
+      </div>
+
+      <div id="tracking-result-container" class="mt-4">
+        <!-- Results rendered here -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Customer Reviews & Rating Section -->
+  <section class="section bg-light" id="review-section">
+    <div class="container">
+      <div class="section-header text-center">
+        <div class="badge-review"><i class="fa-solid fa-star text-warning"></i> รีวิวและความพึงพอใจจากผู้โดยสารจริง</div>
+        <h2 class="section-title">เสียงตอบรับและความประทับใจจากผู้โดยสาร</h2>
+        <p class="section-subtitle">คะแนนรีวิวล่าสุดจากผู้ใช้บริการ SiamBus Express ทั่วประเทศ พร้อมรับแต้มสะสม SiamBus Points ทุกการจองและรีวิว</p>
+      </div>
+
+      <!-- Rating Overview Row -->
+      <div class="review-overview-grid">
+        <!-- Score Card -->
+        <div class="rating-summary-card">
+          <div class="score-big" id="review-avg-score">4.9</div>
+          <div class="score-stars" id="review-avg-stars">
+            <i class="fa-solid fa-star text-warning"></i>
+            <i class="fa-solid fa-star text-warning"></i>
+            <i class="fa-solid fa-star text-warning"></i>
+            <i class="fa-solid fa-star text-warning"></i>
+            <i class="fa-solid fa-star text-warning"></i>
+          </div>
+          <div class="score-meta">จากผู้โดยสารจริง <strong id="review-total-count">1,280+</strong> รีวิว</div>
+          <div class="recommend-badge"><i class="fa-solid fa-thumbs-up text-success"></i> 98% ผู้โดยสารแนะนำให้ใช้บริการ</div>
+        </div>
+
+        <!-- Criteria Bars -->
+        <div class="rating-breakdown-card">
+          <h4 class="breakdown-title">เกณฑ์คะแนนความพึงพอใจ</h4>
+          <div class="criteria-list">
+            <div class="criteria-item">
+              <div class="criteria-header">
+                <span><i class="fa-regular fa-clock text-primary"></i> ความตรงต่อเวลา</span>
+                <span class="criteria-val">4.9 / 5.0</span>
+              </div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 98%;"></div></div>
+            </div>
+            <div class="criteria-item">
+              <div class="criteria-header">
+                <span><i class="fa-solid fa-shield-halved text-success"></i> มาตรฐานความปลอดภัย</span>
+                <span class="criteria-val">5.0 / 5.0</span>
+              </div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 100%;"></div></div>
+            </div>
+            <div class="criteria-item">
+              <div class="criteria-header">
+                <span><i class="fa-solid fa-sparkles text-info"></i> ความสะอาดของตัวรถ</span>
+                <span class="criteria-val">4.8 / 5.0</span>
+              </div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 96%;"></div></div>
+            </div>
+            <div class="criteria-item">
+              <div class="criteria-header">
+                <span><i class="fa-solid fa-heart text-danger"></i> มารยาทการบริการพนักงาน</span>
+                <span class="criteria-val">4.9 / 5.0</span>
+              </div>
+              <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: 98%;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Write Review CTA Card -->
+        <div class="write-review-cta-card">
+          <div class="cta-badge"><i class="fa-solid fa-coins text-warning"></i> รับฟรี +20 แต้ม</div>
+          <h3>เคยเดินทางกับเราแล้วใช่ไหม?</h3>
+          <p>ร่วมแบ่งปันประสบการณ์การเดินทาง และให้คะแนนเพื่อช่วยยกระดับการบริการ พร้อมรับ SiamBus Points ทันที!</p>
+          <button class="btn btn-warning btn-lg shadow-hover" onclick="openReviewModal()"><i class="fa-solid fa-pen-to-square"></i> เขียนรีวิวและให้คะแนน</button>
+        </div>
+      </div>
+
+      <!-- Review Filter Bar -->
+      <div class="review-filters-bar">
+        <span class="filter-label"><i class="fa-solid fa-filter text-muted"></i> กรองตาม:</span>
+        <button class="review-filter-btn active" onclick="filterReviews('all', this)">ทั้งหมด</button>
+        <button class="review-filter-btn" onclick="filterReviews('5', this)">⭐ 5 ดาว</button>
+        <button class="review-filter-btn" onclick="filterReviews('4', this)">⭐ 4 ดาว</button>
+        <button class="review-filter-btn" onclick="filterReviews('เชียงใหม่', this)">📍 เชียงใหม่</button>
+        <button class="review-filter-btn" onclick="filterReviews('ภูเก็ต', this)">📍 ภูเก็ต</button>
+        <button class="review-filter-btn" onclick="filterReviews('ขอนแก่น', this)">📍 ขอนแก่น</button>
+      </div>
+
+      <!-- Reviews Feed Grid -->
+      <div class="reviews-grid" id="reviews-feed-grid">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Staff Misconduct & Customer Request Report Section -->
+  <section class="section" id="report-section">
+    <div class="container">
+      <div class="section-header text-center">
+        <h2 class="section-title">ศูนย์รับเรื่องร้องเรียนและข้อเสนอแนะ</h2>
+        <p class="section-subtitle">รายงานพฤติกรรมที่ไม่เหมาะสมของพนักงาน หรือแจ้งความต้องการสิ่งอำนวยความสะดวก
+          เพื่อการพัฒนาบริการ</p>
+      </div>
+
+      <div class="report-grid">
+        <!-- Left: Info & Categories -->
+        <div class="report-info-card">
+          <div class="info-badge"><i class="fa-solid fa-shield-heart"></i> เราพร้อมรับฟังทุกความคิดเห็น</div>
+          <h3>ร่วมเป็นส่วนหนึ่งในการยกระดับมาตรฐานความปลอดภัย</h3>
+          <p>หากท่านพบเห็นพนักงานขับรถเร็ว ขับหวาดเสียว พูดจาไม่สุภาพ รถมาสาย หรือต้องการสิ่งอำนวยความสะดวกเพิ่มเติม
+            สามารถแจ้งผ่านระบบนี้ได้ทันที เรื่องของท่านจะถูกส่งตรงถึงผู้บริหาร</p>
+
+          <div class="report-features">
+            <div class="feat-item">
+              <i class="fa-solid fa-user-secret"></i>
+              <div>
+                <strong>รักษาความลับผู้แจ้ง</strong>
+                <span>ข้อมูลของท่านจะถูกเก็บเป็นความลับสูงสุด</span>
+              </div>
+            </div>
+            <div class="feat-item">
+              <i class="fa-solid fa-stopwatch"></i>
+              <div>
+                <strong>ตรวจสอบรวดเร็วใน 24 ชม.</strong>
+                <span>มีเลขอ้างอิง Ticket ติดตามผลการดำเนินการได้</span>
+              </div>
+            </div>
+            <div class="feat-item">
+              <i class="fa-solid fa-award"></i>
+              <div>
+                <strong>รางวัลผู้ให้เบาะแส</strong>
+                <span>มีคูปองส่วนลดตอบแทนสำหรับข้อเสนอแนะที่เป็นประโยชน์</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Submission Form -->
+        <div class="report-form-card">
+          <form id="misconduct-report-form" onsubmit="handleReportSubmit(event)">
+            <div class="form-group mb-3">
+              <label>ประเภทของเรื่องที่ต้องการแจ้ง <span class="text-danger">*</span></label>
+              <select id="report-type" class="form-control" required>
+                <option value="พฤติกรรมพนักงาน: ขับรถเร็ว/หวาดเสียว">🚨 รายงานพนักงาน: ขับรถเร็ว / หวาดเสียว /
+                  ใช้โทรศัพท์ขณะขับ</option>
+                <option value="พฤติกรรมพนักงาน: พูดจาไม่สุภาพ/บริการแย่">⚠️ รายงานพนักงาน: พูดจาไม่สุภาพ /
+                  บริการไม่เหมาะสม</option>
+                <option value="พฤติกรรมพนักงาน: มาสาย/ออกก่อนเวลา">⏳ รายงานเวลา: รถมาสาย / ออกก่อนเวลาโดยไม่แจ้ง
+                </option>
+                <option value="รายงานสภาพรถ/แอร์/ความสะอาด">🛠️ รายงานสภาพรถ: แอร์ไม่เย็น / เบาะชำรุด / ไม่สะอาด
+                </option>
+                <option value="แจ้งความต้องการสิ่งอำนวยความสะดวกเพิ่มเติม">💡 แจ้งความต้องการ:
+                  ขอสิ่งอำนวยความสะดวก/บริการเพิ่มเติม</option>
+                <option value="ชมเชยพนักงาน/ข้อเสนอแนะทั่วไป">⭐ ชมเชยพนักงาน / ข้อเสนอแนะการบริการ</option>
+              </select>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>รอบรถ / เวลาที่เกิดเหตุ</label>
+                <input type="text" id="report-trip-info" class="form-control"
+                  placeholder="เช่น รอบ 08:00 น. กรุงเทพ-เชียงใหม่">
+              </div>
+              <div class="form-group">
+                <label>ทะเบียนรถ หรือ ชื่อพนักงาน (ถ้าทราบ)</label>
+                <input type="text" id="report-staff-vehicle" class="form-control"
+                  placeholder="เช่น ทะเบียน 10-9876 หรือ นายสมศักดิ์">
+              </div>
+            </div>
+
+            <div class="form-group mb-3">
+              <label>รายละเอียดของเหตุการณ์ หรือสิ่งที่ลูกค้าต้องการ <span class="text-danger">*</span></label>
+              <textarea id="report-details" class="form-control" rows="4" required
+                placeholder="อธิบายรายละเอียดเหตุการณ์ สถานที่ เวลา หรือสิ่งที่ท่านต้องการให้ปรับปรุงอย่างชัดเจน..."></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>เบอร์โทรศัพท์สำหรับติดต่อกลับ <span class="text-danger">*</span></label>
+                <input type="tel" id="report-contact-phone" class="form-control" required placeholder="08x-xxx-xxxx">
+              </div>
+              <div class="form-group">
+                <label>อีเมลสำหรับรับผลการตรวจสอบ</label>
+                <input type="email" id="report-contact-email" class="form-control" placeholder="you@example.com">
+              </div>
+            </div>
+
+            <div class="form-group mb-3">
+              <label><i class="fa-solid fa-paperclip"></i> แนบภาพถ่าย / วิดีโอหลักฐาน (ถ้ามี)</label>
+              <input type="file" id="report-evidence-file" class="form-control" accept="image/*,video/*">
+            </div>
+
+            <button type="submit" class="btn btn-danger btn-block">
+              <i class="fa-solid fa-paper-plane"></i> ส่งเรื่องร้องเรียน / ข้อเสนอแนะ
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Section (Phone, Email, Support) -->
+  <section class="section bg-light" id="contact-section">
+    <div class="container">
+      <div class="section-header text-center">
+        <h2 class="section-title">ช่องทางติดต่อและบริการลูกค้า</h2>
+        <p class="section-subtitle">ติดต่อสอบถามข้อมูลการเดินทาง จองคิว หรือขอความช่วยเหลือฉุกเฉินตลอด 24 ชั่วโมง</p>
+      </div>
+
+      <div class="contact-cards-grid">
+        <div class="contact-card">
+          <div class="contact-icon bg-primary-light text-primary">
+            <i class="fa-solid fa-phone-volume"></i>
+          </div>
+          <h4>ศูนย์บริการลูกค้า (Call Center)</h4>
+          <p class="contact-highlight">02-999-8888</p>
+          <p class="contact-sub">081-234-5678 (มือถือสายด่วน)</p>
+          <span class="badge-status-open"><i class="fa-solid fa-circle"></i> เปิดบริการ 24 ชั่วโมง</span>
+        </div>
+
+        <div class="contact-card">
+          <div class="contact-icon bg-success-light text-success">
+            <i class="fa-solid fa-envelope"></i>
+          </div>
+          <h4>อีเมลติดต่ออย่างเป็นทางการ</h4>
+          <p class="contact-highlight">support@siambus-express.com</p>
+          <p class="contact-sub">complaint@siambus-express.com (ฝ่ายร้องเรียน)</p>
+          <span class="badge-status-open"><i class="fa-solid fa-circle"></i> ตอบกลับภายใน 1-2 ชั่วโมง</span>
+        </div>
+
+        <div class="contact-card">
+          <div class="contact-icon bg-warning-light text-warning">
+            <i class="fa-solid fa-location-dot"></i>
+          </div>
+          <h4>สถานีขนส่งและสำนักงานใหญ่</h4>
+          <p class="contact-highlight">สถานีขนส่งผู้โดยสารกรุงเทพ (จตุจักร หมอชิต 2)</p>
+          <p class="contact-sub">อาคารผู้โดยสาร ชั้น 1 ช่องจำหน่ายตั๋ว 45-48</p>
+          <span class="badge-status-open"><i class="fa-solid fa-circle"></i> เปิดทุกวัน 05:00 - 23:00 น.</span>
+        </div>
+
+        <div class="contact-card">
+          <div class="contact-icon bg-info-light text-info">
+            <i class="fa-brands fa-line"></i>
+          </div>
+          <h4>LINE Official Account</h4>
+          <p class="contact-highlight">@siambus</p>
+          <p class="contact-sub">แจ้งเตือนคิวรถ และเช็กตั๋วผ่านไลน์</p>
+          <span class="badge-status-open"><i class="fa-solid fa-circle"></i> ระบบบอทตอบอัตโนมัติ 24 ชม.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-container">
+      <div class="footer-col">
+        <div class="footer-brand">
+          <i class="fa-solid fa-bus-simple"></i> SIAMBUS EXPRESS
+        </div>
+        <p class="footer-desc">ระบบการดูรอบและจองคิวรถบัสมาตรฐานสากล บริการด้วยความจริงใจ ปลอดภัย ราคาเป็นธรรม</p>
+      </div>
+
+      <div class="footer-col">
+        <h5>เมนูลัด</h5>
+        <ul class="footer-links">
+          <li><a href="#schedule-section">รอบรถวันนี้ / พรุ่งนี้</a></li>
+          <li><a href="#live-tracking-section" onclick="scrollToGpsTracker()">ติดตามตำแหน่งรถสด (Live GPS)</a></li>
+          <li><a href="#booking-tracking-section">ตรวจสอบตั๋วและบัตรคิว</a></li>
+          <li><a href="#report-section">รายงานพฤติกรรมพนักงาน</a></li>
+          <li><a href="#contact-section">ข้อมูลติดต่อและอีเมล</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>ความปลอดภัย & มาตรฐาน</h5>
+        <ul class="footer-links">
+          <li><i class="fa-solid fa-shield-halved text-success"></i> Thai QR Payment PromptPay มาตรฐาน EMVCo</li>
+          <li><i class="fa-solid fa-lock text-success"></i> เข้ารหัสข้อมูลส่วนบุคคล (PDPA Compliant)</li>
+          <li><i class="fa-solid fa-truck-medical text-success"></i> ประกันภัย พ.ร.บ. และประกันอุบัติเหตุทุกที่นั่ง</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom text-center">
+      <p>© 2026 SiamBus Express ระบบจองคิวรถบัสออนไลน์ - สำหรับส่งงานสอบอาจารย์เท่</p>
+    </div>
+  </footer>
+
+  <!-- Auth Modal (Login / Register) -->
+  <div class="modal-overlay" id="auth-modal">
+    <div class="modal-dialog modal-md">
+      <div class="modal-header">
+        <h3 class="modal-title" id="auth-modal-title">เข้าสู่ระบบ</h3>
+        <button class="btn-close-modal" onclick="closeAuthModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Auth Tabs -->
+        <div class="auth-toggle-tabs">
+          <button class="auth-tab-btn active" id="auth-login-tab" onclick="switchAuthTab('login')">เข้าสู่ระบบ</button>
+          <button class="auth-tab-btn" id="auth-reg-tab"
+            onclick="switchAuthTab('register')">ลงทะเบียนสมาชิกใหม่</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" onsubmit="handleLogin(event)">
+          <div class="form-group mb-3">
+            <label>อีเมล หรือ เบอร์โทรศัพท์</label>
+            <input type="text" id="login-identifier" class="form-control" required
+              placeholder="user@example.com หรือ 0812345678">
+          </div>
+          <div class="form-group mb-3">
+            <label>รหัสผ่าน</label>
+            <input type="password" id="login-password" class="form-control" required placeholder="••••••••">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">เข้าสู่ระบบ</button>
+          <div class="quick-admin-hint">
+            <small class="text-muted">ทดสอบแอดมิน: เข้าสู่ระบบด้วย <code>admin@siambus.com</code> / รหัส
+              <code>admin123</code></small>
+          </div>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="d-none" onsubmit="handleRegister(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>ชื่อ <span class="text-danger">*</span></label>
+              <input type="text" id="reg-firstname" class="form-control" required placeholder="สมชาย">
+            </div>
+            <div class="form-group">
+              <label>นามสกุล <span class="text-danger">*</span></label>
+              <input type="text" id="reg-lastname" class="form-control" required placeholder="ใจดี">
+            </div>
+          </div>
+          <div class="form-group mb-3">
+            <label>เบอร์โทรศัพท์ <span class="text-danger">*</span></label>
+            <input type="tel" id="reg-phone" class="form-control" required placeholder="081-234-5678">
+          </div>
+          <div class="form-group mb-3">
+            <label>อีเมล <span class="text-danger">*</span></label>
+            <input type="email" id="reg-email" class="form-control" required placeholder="somchai@example.com">
+          </div>
+          <div class="form-group mb-3">
+            <label>รหัสผ่าน (อย่างน้อย 6 ตัวอักษร) <span class="text-danger">*</span></label>
+            <input type="password" id="reg-password" class="form-control" required minlength="6"
+              placeholder="กำหนดรหัสผ่าน">
+          </div>
+          <button type="submit" class="btn btn-success btn-block">ลงทะเบียนสมาชิก</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Portal Modal / Dashboard -->
+  <div class="modal-overlay" id="admin-modal">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-header bg-dark text-white">
+        <div class="modal-title-wrap">
+          <span class="modal-badge badge-warning"><i class="fa-solid fa-shield-halved"></i> ระบบผู้ดูแลระบบ (Admin
+            Portal)</span>
+          <h3 class="modal-title">แผงควบคุมจัดการรอบรถ การจอง และเรื่องร้องเรียน</h3>
+        </div>
+        <button class="btn-close-modal text-white" onclick="closeAdminPortal()">&times;</button>
+      </div>
+      <div class="modal-body admin-body">
+        <!-- Admin Stats Bar -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="stat-icon bg-primary"><i class="fa-solid fa-bus"></i></div>
+            <div class="stat-info">
+              <span class="stat-label">รอบรถวันนี้</span>
+              <h3 id="admin-stat-today-trips">8 รอบ</h3>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-icon bg-info"><i class="fa-solid fa-calendar-plus"></i></div>
+            <div class="stat-info">
+              <span class="stat-label">รอบรถวันพรุ่งนี้</span>
+              <h3 id="admin-stat-tomorrow-trips">10 รอบ</h3>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-icon bg-success"><i class="fa-solid fa-ticket"></i></div>
+            <div class="stat-info">
+              <span class="stat-label">ยอดจองตั๋วรวม</span>
+              <h3 id="admin-stat-total-bookings">12 ใบ</h3>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-icon bg-danger"><i class="fa-solid fa-bullhorn"></i></div>
+            <div class="stat-info">
+              <span class="stat-label">เรื่องร้องเรียน/ข้อเสนอแนะ</span>
+              <h3 id="admin-stat-reports">2 เรื่อง</h3>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Tab Navigation -->
+        <div class="admin-tabs">
+          <button class="admin-tab-btn active" onclick="switchAdminTab('schedules')"><i
+              class="fa-solid fa-calendar-days"></i> จัดการรอบรถ (วันนี้/พรุ่งนี้)</button>
+          <button class="admin-tab-btn" onclick="switchAdminTab('bookings')"><i class="fa-solid fa-list-check"></i>
+            รายการจองคิว & ตรวจสอบสลิป</button>
+          <button class="admin-tab-btn" onclick="switchAdminTab('reports')"><i
+              class="fa-solid fa-triangle-exclamation"></i> รายงานพฤติกรรมพนักงาน & ลูกค้า</button>
+          <button class="admin-tab-btn" onclick="switchAdminTab('fleet')"><i
+              class="fa-solid fa-satellite-dish"></i> ตรวจสอบ GPS กองรถ (Fleet GPS)</button>
+        </div>
+
+        <!-- Admin Tab 1: Schedules Management -->
+        <div class="admin-tab-content" id="admin-tab-schedules">
+          <div class="d-flex justify-between align-center mb-3">
+            <h4>ตารางรอบรถทั้งหมด</h4>
+            <button class="btn btn-sm btn-primary" onclick="openAddTripModal()"><i class="fa-solid fa-plus"></i>
+              เพิ่มรอบรถใหม่</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table-custom">
+              <thead>
+                <tr>
+                  <th>วัน</th>
+                  <th>รอบที่</th>
+                  <th>เวลาออก-ถึง</th>
+                  <th>เส้นทาง</th>
+                  <th>ประเภทรถ/ทะเบียน</th>
+                  <th>ราคา</th>
+                  <th>ที่นั่งว่าง</th>
+                  <th>การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="admin-schedules-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Admin Tab 2: Bookings Management -->
+        <div class="admin-tab-content d-none" id="admin-tab-bookings">
+          <h4>รายการจองคิวและสถานะตั๋ว</h4>
+          <div class="table-responsive mt-3">
+            <table class="table-custom">
+              <thead>
+                <tr>
+                  <th>รหัสการจอง (Ref)</th>
+                  <th>ชื่อผู้โดยสาร</th>
+                  <th>รอบรถ / เวลา</th>
+                  <th>ที่นั่ง</th>
+                  <th>วันที่เริ่มจอง</th>
+                  <th>เวลาหมดอายุ</th>
+                  <th>ยอดเงิน</th>
+                  <th>สถานะ</th>
+                </tr>
+              </thead>
+              <tbody id="admin-bookings-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Admin Tab 3: Reports Management -->
+        <div class="admin-tab-content d-none" id="admin-tab-reports">
+          <h4>เรื่องร้องเรียนพฤติกรรมพนักงาน & สิ่งที่ลูกค้าต้องการ</h4>
+          <div class="table-responsive mt-3">
+            <table class="table-custom">
+              <thead>
+                <tr>
+                  <th>Ticket ID</th>
+                  <th>ประเภท</th>
+                  <th>รอบ/ทะเบียน/พนักงาน</th>
+                  <th>รายละเอียด</th>
+                  <th>ผู้แจ้ง/เบอร์ติดต่อ</th>
+                  <th>เวลาแจ้ง</th>
+                  <th>สถานะ</th>
+                  <th>การจัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="admin-reports-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Admin Tab 4: Fleet GPS Tracking Management -->
+        <div class="admin-tab-content d-none" id="admin-tab-fleet">
+          <div class="d-flex justify-between align-center mb-3">
+            <div>
+              <h4><i class="fa-solid fa-satellite-dish text-primary"></i> แผนที่ติดตามตำแหน่ง GPS กองรถแบบรวมศูนย์ (Fleet Telematics)</h4>
+              <p class="text-muted text-sm">มอนิเตอร์ความเร็ว พิกัด และสถานะความปลอดภัยของรถบัสทุกลำดับรอบแบบ Real-Time</p>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="renderAdminFleetMap()"><i class="fa-solid fa-arrows-rotate"></i> อัปเดตพิกัดกองรถ</button>
+          </div>
+          
+          <div class="admin-fleet-map-wrapper mb-3">
+            <div id="admin-fleet-map" style="height: 380px; width: 100%; border-radius: 12px; border: 1px solid #cbd5e1;"></div>
+          </div>
+
+          <div class="table-responsive mt-3">
+            <table class="table-custom">
+              <thead>
+                <tr>
+                  <th>รอบ / เวลา</th>
+                  <th>เส้นทาง</th>
+                  <th>ทะเบียนรถ</th>
+                  <th>พนักงานขับรถ</th>
+                  <th>พิกัดล่าสุด</th>
+                  <th>ความเร็ว</th>
+                  <th>สถานะความเร็ว</th>
+                  <th>การติดตาม</th>
+                </tr>
+              </thead>
+              <tbody id="admin-fleet-tbody">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Trip Modal -->
+  <div class="modal-overlay" id="add-trip-modal">
+    <div class="modal-dialog modal-md">
+      <div class="modal-header">
+        <h4 class="modal-title">เพิ่มรอบรถบัสใหม่</h4>
+        <button class="btn-close-modal" onclick="closeAddTripModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="add-trip-form" onsubmit="handleAddTrip(event)">
+          <div class="form-group mb-2">
+            <label>วันที่เดินรถ</label>
+            <select id="newtrip-day" class="form-control">
+              <option value="today">วันนี้</option>
+              <option value="tomorrow">วันพรุ่งนี้</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>เวลาออกเดินทาง</label>
+              <input type="time" id="newtrip-time" class="form-control" required value="09:00">
+            </div>
+            <div class="form-group">
+              <label>เวลาถึงปลายทาง (โดยประมาณ)</label>
+              <input type="time" id="newtrip-arr-time" class="form-control" required value="17:00">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ต้นทาง</label>
+              <input type="text" id="newtrip-origin" class="form-control" required value="กรุงเทพฯ (หมอชิต 2)">
+            </div>
+            <div class="form-group">
+              <label>ปลายทาง</label>
+              <input type="text" id="newtrip-dest" class="form-control" required
+                value="สถานีขนส่งผู้โดยสาร จ.เชียงใหม่">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ประเภทรถ</label>
+              <select id="newtrip-type" class="form-control">
+                <option value="VIP 24 ที่นั่ง">VIP 24 ที่นั่ง (เบาะนวด)</option>
+                <option value="ปรับอากาศชั้น 1 (36 ที่นั่ง)">ปรับอากาศชั้น 1 (36 ที่นั่ง)</option>
+                <option value="ด่วนพิเศษ Express">ด่วนพิเศษ Express</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ราคาค่าโดยสาร (บาท)</label>
+              <input type="number" id="newtrip-price" class="form-control" required value="350" min="50">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>ทะเบียนรถ</label>
+              <input type="text" id="newtrip-plate" class="form-control" required value="10-5432 กทม.">
+            </div>
+            <div class="form-group">
+              <label>ชื่อพนักงานขับรถ</label>
+              <input type="text" id="newtrip-driver" class="form-control" required value="นาย ประเสริฐ ยิ้มแย้ม">
+            </div>
+          </div>
+          <div class="modal-footer mt-3">
+            <button type="button" class="btn btn-outline" onclick="closeAddTripModal()">ยกเลิก</button>
+            <button type="submit" class="btn btn-primary">บันทึกรอบรถ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Master Prompt Modal (For copy/submitting to teacher) -->
+  <div class="modal-overlay" id="prompt-modal">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-header bg-gradient-primary text-white">
+        <div class="modal-title-wrap">
+          <span class="modal-badge badge-light text-primary"><i class="fa-solid fa-code"></i> AI Prompt
+            Engineering</span>
+          <h3 class="modal-title">ชุดคำสั่ง Master Prompt (สำหรับสั่งสร้างระบบ / ส่งงานอาจารย์เท่)</h3>
+        </div>
+        <button class="btn-close-modal text-white" onclick="closePromptModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="prompt-intro-box">
+          <p><i class="fa-solid fa-circle-check text-success"></i> ชุดคำสั่งนี้เขียนตามหลัก <strong>Prompt Engineering
+              ระดับสูง</strong> ครอบคลุมครบทุกข้อกำหนดตามโจทย์: ดูรอบวันนี้/พรุ่งนี้,
+            วันที่เริ่มจองและวันหมดอายุของบัตรคิว, คิวอาร์โค้ดพร้อมเพย์เสมือนจริง, รายงานพฤติกรรมพนักงาน, แอดมิน,
+            สมาชิก, และราคาที่เป็นธรรม</p>
+          <button class="btn btn-success" onclick="copyMasterPrompt()"><i class="fa-solid fa-copy"></i> คัดลอก Prompt
+            ทั้งหมด</button>
+        </div>
+        <pre class="prompt-code-block" id="master-prompt-content"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- App Script -->
+  <script src="app.js"></script>
+</body>
+
+</html>
