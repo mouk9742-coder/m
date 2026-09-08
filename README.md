@@ -48,14 +48,35 @@
 ## 🛠️ เทคโนโลยีที่ใช้ (Tech Stack)
 
 - **Frontend:** HTML5, Modern Vanilla CSS (Glassmorphism & Micro-animations), JavaScript (ES6+)
+- **Cloud Backend & Database:** Supabase (`https://xcejhdepsqxjhevnwzxl.supabase.co`) & `@supabase/supabase-js`
 - **Map & GPS Engine:** Leaflet.js, OpenStreetMap, Real-Time Telematics & Waypoints Interpolation
-- **Storage:** LocalStorage สำหรับบันทึกข้อมูลรอบรถ, การจอง, ประวัติ และตั๋ว
+- **Local Fallback Storage:** LocalStorage สำหรับบันทึกข้อมูลรอบรถ, การจอง, ประวัติ และตั๋วแบบ Offline/Hybrid
 - **Standards & Libraries:** EMVCo Thai QR Standard, QRCode.js, Font Awesome, Google Fonts (Prompt & Sarabun)
+
+---
+
+## ☁️ การเชื่อมต่อฐานข้อมูล Supabase (Cloud Backend)
+
+- **Supabase Project URL:** `https://xcejhdepsqxjhevnwzxl.supabase.co`
+- **ไฟล์สร้างตารางฐานข้อมูล:** [`supabase_schema.sql`](supabase_schema.sql)
+- **ตารางข้อมูลในระบบ:**
+  1. `schedules` - จัดเก็บตารางรอบรถประจำวัน (Today/Tomorrow)
+  2. `bookings` - จัดเก็บข้อมูลการจองและบัตรคิวดิจิทัล
+  3. `reports` - จัดเก็บเรื่องร้องเรียนพฤติกรรมพนักงานและข้อเสนอแนะ
+  4. `reviews` - จัดเก็บรีวิวและคะแนนความพึงพอใจ
+
+### วิธีนำ SQL Schema ไปติดตั้งใน Supabase:
+1. เปิดหน้าแดชบอร์ดของ Supabase: [https://supabase.com/dashboard/project/xcejhdepsqxjhevnwzxl](https://supabase.com/dashboard/project/xcejhdepsqxjhevnwzxl)
+2. ไปที่เมนู **SQL Editor**
+3. คัดลอกคำสั่งทั้งหมดในไฟล์ [`supabase_schema.sql`](supabase_schema.sql) ไปวางแล้วกด **Run**
+4. หน้าเว็บ SiamBus Express จะสามารถซิงค์และบันทึกข้อมูลแบบ Real-Time ทันที
 
 ---
 
 ## 🚀 วิธีการเปิดใช้งาน (Getting Started)
 
-1. Clone หรือ Download Repository นี้
-2. เปิดไฟล์ `index.html` ด้วยเว็บเบราว์เซอร์ (Chrome, Edge, Safari, Firefox) หรือใช้ Live Server
-3. ใช้งานระบบได้ทันทีโดยไม่ต้องติดตั้ง Backend หรือ Database เพิ่มเติม
+1. เข้าใช้งานผ่านลิงก์ Live Demo: **[https://mouk9742-coder.github.io/m/](https://mouk9742-coder.github.io/m/)**
+2. หรือ Clone Repository นี้: `git clone https://github.com/mouk9742-coder/m.git`
+3. เปิดไฟล์ `index.html` ด้วยเว็บเบราว์เซอร์ (Chrome, Edge, Safari, Firefox)
+4. ใช้งานระบบได้ทันทีทั้งแบบ Offline LocalStorage และเชื่อมต่อ Supabase Cloud
+

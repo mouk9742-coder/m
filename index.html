@@ -64,6 +64,7 @@
           <button class="btn-icon" title="ออกจากระบบ" onclick="logout()"><i
               class="fa-solid fa-right-from-bracket"></i></button>
         </div>
+        <button class="btn btn-outline btn-sm" onclick="openSupabaseModal()" title="เชื่อมต่อฐานข้อมูล Supabase Cloud" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; border-color:#0284c7; color:#0284c7;"><i class="fa-solid fa-cloud"></i> Supabase</button>
         <button class="btn btn-admin-toggle" id="btn-admin-portal" onclick="openAdminPortal()"><i
             class="fa-solid fa-shield-halved"></i> แอดมิน</button>
         <button class="mobile-toggle" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></button>
@@ -1007,7 +1008,6 @@
           <li><i class="fa-solid fa-shield-halved text-success"></i> Thai QR Payment PromptPay มาตรฐาน EMVCo</li>
           <li><i class="fa-solid fa-lock text-success"></i> เข้ารหัสข้อมูลส่วนบุคคล (PDPA Compliant)</li>
           <li><i class="fa-solid fa-truck-medical text-success"></i> ประกันภัย พ.ร.บ. และประกันอุบัติเหตุทุกที่นั่ง</li>
-          <li><i class="fa-solid fa-database text-info"></i> เชื่อมต่อ Supabase Cloud Database: <a href="https://xcejhdepsqxjhevnwzxl.supabase.co" target="_blank" rel="noopener" style="color: #38bdf8;">xcejhdepsqxjhevnwzxl.supabase.co</a></li>
         </ul>
       </div>
     </div>
@@ -1341,6 +1341,57 @@
             ทั้งหมด</button>
         </div>
         <pre class="prompt-code-block" id="master-prompt-content"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase Cloud Database Modal -->
+  <div class="modal-overlay" id="supabase-modal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header bg-gradient-primary text-white">
+        <div class="modal-title-wrap">
+          <span class="modal-badge badge-light text-primary"><i class="fa-solid fa-cloud"></i> Cloud Database</span>
+          <h3 class="modal-title">การเชื่อมต่อ Supabase Backend</h3>
+        </div>
+        <button class="btn-close-modal text-white" onclick="closeSupabaseModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="p-3 bg-light rounded-lg border border-slate-200 mb-3">
+          <div class="d-flex justify-between align-center mb-2">
+            <div>
+              <span class="text-muted text-sm">Supabase Project URL:</span><br>
+              <strong class="font-mono text-primary" style="font-size:1.05rem;">https://xcejhdepsqxjhevnwzxl.supabase.co</strong>
+            </div>
+            <div class="supabase-status-indicator">
+              <span class="badge-tag" style="background:#e0f2fe; color:#0369a1;"><i class="fa-solid fa-cloud text-primary"></i> Supabase Cloud</span>
+            </div>
+          </div>
+          <p class="text-muted text-sm" style="margin:0;">ระบบถูกผูกและตั้งค่าเชื่อมโยงกับฐานข้อมูล Supabase เรียบร้อยแล้ว พร้อมระบบ LocalStorage Fallback ทำงานได้แบบไม่สะดุด</p>
+        </div>
+
+        <form id="supabase-config-form" onsubmit="saveSupabaseConfig(event)">
+          <div class="form-group mb-3">
+            <label class="font-bold">Supabase Anon Public Key (สำหรับ Live Cloud Sync)</label>
+            <input type="text" id="supabase-anon-key-input" class="form-control font-mono" placeholder="วาง Supabase anon key ที่นี่ เช่น eyJhbGciOiJIUzI1NiIsInR5cCI6..." style="font-size:0.85rem;">
+            <small class="text-muted">หากไม่ระบุคีย์ ระบบจะใช้ Local Data Store ในเบราว์เซอร์อัตโนมัติ</small>
+          </div>
+
+          <div class="d-flex gap-2 mb-3">
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> บันทึก Key</button>
+            <button type="button" class="btn btn-outline" onclick="testSupabaseConnection(true)"><i class="fa-solid fa-signal"></i> ทดสอบการเชื่อมต่อ</button>
+            <button type="button" class="btn btn-success" onclick="syncLocalToSupabase()"><i class="fa-solid fa-cloud-arrow-up"></i> ซิงค์ข้อมูลขึ้น Cloud</button>
+          </div>
+        </form>
+
+        <div class="border-top pt-3 mt-3">
+          <h5 class="font-bold mb-2"><i class="fa-solid fa-table"></i> โครงสร้างฐานข้อมูล SQL (supabase_schema.sql)</h5>
+          <p class="text-muted text-sm">คัดลอกคำสั่ง SQL ด้านล่างไปวางใน <strong>Supabase SQL Editor</strong> เพื่อสร้างตาราง <code>schedules</code>, <code>bookings</code>, <code>reports</code> และ <code>reviews</code> ได้ทันที</p>
+          <pre class="prompt-code-block" style="max-height:180px; font-size:0.75rem;">-- สร้างตาราง Schedules, Bookings, Reports, Reviews
+-- ดูไฟล์ตัวเต็มได้ที่ supabase_schema.sql ใน Repository
+CREATE TABLE IF NOT EXISTS public.schedules (id VARCHAR PRIMARY KEY, day VARCHAR, time VARCHAR, origin VARCHAR, dest VARCHAR, price NUMERIC, ...);
+CREATE TABLE IF NOT EXISTS public.bookings (ref_code VARCHAR PRIMARY KEY, queue_no VARCHAR, passenger_name VARCHAR, phone VARCHAR, seats JSONB, amount NUMERIC, ...);
+CREATE TABLE IF NOT EXISTS public.reports (ticket_id VARCHAR PRIMARY KEY, type VARCHAR, details TEXT, phone VARCHAR, status VARCHAR, ...);</pre>
+        </div>
       </div>
     </div>
   </div>

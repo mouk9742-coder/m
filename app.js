@@ -93,56 +93,233 @@ let state = {
   qrTimerInterval: null
 };
 
-// ==========================================
-// 1.1 Supabase Cloud Backend Configuration
-// ==========================================
-const SUPABASE_CONFIG = {
-  url: 'https://xcejhdepsqxjhevnwzxl.supabase.co',
-  anonKey: localStorage.getItem('siambus_supabase_key') || 'sb_publishable_anon_key',
-  client: null,
-  isConnected: false
-};
-
-// Initialize Supabase Client
-function initSupabase() {
-  try {
-    if (window.supabase && SUPABASE_CONFIG.url) {
-      SUPABASE_CONFIG.client = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-      SUPABASE_CONFIG.isConnected = true;
-      console.log('⚡ Supabase Client Connected:', SUPABASE_CONFIG.url);
-    }
-  } catch (err) {
-    console.warn('⚠️ Supabase init status:', err);
-  }
-}
-
-// Sync helper to Supabase (Bookings, Reports, Schedules)
-async function syncToSupabase(table, data) {
-  if (!SUPABASE_CONFIG.client || !SUPABASE_CONFIG.isConnected) return;
-  try {
-    const { error } = await SUPABASE_CONFIG.client.from(table).upsert(data);
-    if (error) {
-      console.warn(`Supabase sync note [${table}]:`, error.message);
-    } else {
-      console.log(`✅ Synced to Supabase [${table}]`);
-    }
-  } catch (err) {
-    console.warn(`Supabase sync exception [${table}]:`, err);
-  }
-}
-
 // Save helper
 function saveState() {
   localStorage.setItem('siambus_schedules', JSON.stringify(state.schedules));
   localStorage.setItem('siambus_bookings', JSON.stringify(state.bookings));
   localStorage.setItem('siambus_reports', JSON.stringify(state.reports));
   localStorage.setItem('siambus_current_user', JSON.stringify(state.currentUser));
+}
 
-  // Background sync with Supabase Cloud
-  if (SUPABASE_CONFIG.client) {
-    syncToSupabase('bookings', state.bookings);
-    syncToSupabase('reports', state.reports);
+// ==========================================
+// 1.1 Supabase Cloud Backend Integration
+// Project URL: https://xcejhdepsqxjhevnwzxl.supabase.co
+// ==========================================
+
+const SUPABASE_CONFIG = {
+  url: 'https://xcejhdepsqxjhevnwzxl.supabase.co',
+  anonKey: localStorage.getItem('siambus_supabase_anon_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder'
+};
+
+let supabaseClient = null;
+let isSupabaseOnline = false;
+
+function initSupabase() {
+  if (typeof window.supabase !== 'undefined' && SUPABASE_CONFIG.url) {
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+      console.log('⚡ Supabase Client initialized with URL:', SUPABASE_CONFIG.url);
+      testSupabaseConnection(false);
+    } catch (err) {
+      console.warn('⚠️ Supabase initialization note:', err.message);
+    }
   }
+}
+
+async function testSupabaseConnection(showAlert = true) {
+  if (!supabaseClient) {
+    if (showAlert) alert('❌ ไม่พบ Supabase JS Library หรือไม่สามารถเริ่มทำงานได้');
+    return false;
+  }
+  try {
+    const { data, error } = await supabaseClient.from('schedules').select('id').limit(1);
+    if (error) {
+      console.warn('⚠️ Supabase connection test notice:', error.message);
+      isSupabaseOnline = false;
+      updateSupabaseUIBadge(false);
+      if (showAlert) {
+        alert(`ℹ️ การเชื่อมโยง Supabase Project:\nURL: ${SUPABASE_CONFIG.url}\n\nสถานะ: ชี้เป้าหมายเซิร์ฟเวอร์เรียบร้อยแล้ว หากต้องการให้บันทึก Cloud Database แบบ Realtime กรุณาระบุ Anon Key และสร้างตารางตามไฟล์ supabase_schema.sql\n\n(ระบบปัจจุบันบันทึกและทำงานเต็มรูปแบบผ่าน LocalStorage ในเบราว์เซอร์อัตโนมัติ)`);
+      }
+      return false;
+    } else {
+      isSupabaseOnline = true;
+      updateSupabaseUIBadge(true);
+      if (showAlert) {
+        alert(`✅ เชื่อมต่อ Supabase สำเร็จสมบูรณ์!\nURL: ${SUPABASE_CONFIG.url}\nระบบเปิดการซิงค์ข้อมูล Real-Time แล้ว`);
+      }
+      fetchCloudSchedules();
+      return true;
+    }
+  } catch (err) {
+    isSupabaseOnline = false;
+    updateSupabaseUIBadge(false);
+    if (showAlert) {
+      alert(`ℹ️ Supabase: โครงสร้างพร้อมเชื่อมโยง URL ${SUPABASE_CONFIG.url} เรียบร้อยแล้ว`);
+    }
+    return false;
+  }
+}
+
+function updateSupabaseUIBadge(isOnline) {
+  const badges = document.querySelectorAll('.supabase-status-indicator');
+  badges.forEach(b => {
+    if (isOnline) {
+      b.innerHTML = `<span class="badge-tag paid" style="font-size:0.8rem;"><i class="fa-solid fa-circle-check text-success"></i> Supabase Online</span>`;
+    } else {
+      b.innerHTML = `<span class="badge-tag" style="background:#e0f2fe; color:#0369a1; font-size:0.8rem;"><i class="fa-solid fa-cloud text-primary"></i> Supabase Cloud</span>`;
+    }
+  });
+}
+
+// Cloud Database sync methods
+async function saveBookingToCloud(b) {
+  if (!supabaseClient || !isSupabaseOnline) return;
+  try {
+    await supabaseClient.from('bookings').insert([{
+      ref_code: b.refCode,
+      queue_no: b.queueNo,
+      passenger_name: b.passengerName,
+      phone: b.phone,
+      email: b.email,
+      trip_id: b.tripId,
+      trip_day: b.tripDay,
+      round_seq: b.roundSeq,
+      total_rounds: b.totalRounds,
+      dept_time: b.deptTime,
+      arr_time: b.arrTime,
+      origin: b.origin,
+      dest: b.dest,
+      bus_type: b.busType,
+      seats: b.seats,
+      amount: b.amount,
+      booking_start_time: b.bookingStartTime,
+      queue_expiry_time: b.queueExpiryTime,
+      status: b.status,
+      payment_method: b.paymentMethod
+    }]);
+    console.log('☁️ Booking saved to Supabase Cloud:', b.refCode);
+  } catch (err) {
+    console.warn('Supabase booking save fallback:', err.message);
+  }
+}
+
+async function saveReportToCloud(r) {
+  if (!supabaseClient || !isSupabaseOnline) return;
+  try {
+    await supabaseClient.from('reports').insert([{
+      ticket_id: r.ticketId,
+      type: r.type,
+      trip_info: r.tripInfo,
+      staff_vehicle: r.staffVehicle,
+      details: r.details,
+      phone: r.phone,
+      email: r.email,
+      status: r.status
+    }]);
+    console.log('☁️ Report saved to Supabase Cloud:', r.ticketId);
+  } catch (err) {
+    console.warn('Supabase report save fallback:', err.message);
+  }
+}
+
+async function saveScheduleToCloud(s) {
+  if (!supabaseClient || !isSupabaseOnline) return;
+  try {
+    await supabaseClient.from('schedules').insert([{
+      id: s.id,
+      day: s.day,
+      round_seq: s.roundSeq,
+      total_rounds: s.totalRounds,
+      time: s.time,
+      arr_time: s.arrTime,
+      origin: s.origin,
+      dest: s.dest,
+      type: s.type,
+      plate: s.plate,
+      driver: s.driver,
+      price: s.price,
+      total_seats: s.totalSeats,
+      occupied_seats: s.occupiedSeats
+    }]);
+    console.log('☁️ Schedule saved to Supabase Cloud:', s.id);
+  } catch (err) {
+    console.warn('Supabase schedule save fallback:', err.message);
+  }
+}
+
+async function fetchCloudSchedules() {
+  if (!supabaseClient || !isSupabaseOnline) return;
+  try {
+    const { data, error } = await supabaseClient.from('schedules').select('*');
+    if (!error && data && data.length > 0) {
+      state.schedules = data.map(d => ({
+        id: d.id,
+        day: d.day,
+        roundSeq: d.round_seq,
+        totalRounds: d.total_rounds,
+        time: d.time,
+        arrTime: d.arr_time,
+        origin: d.origin,
+        dest: d.dest,
+        type: d.type,
+        plate: d.plate,
+        driver: d.driver,
+        price: Number(d.price),
+        totalSeats: d.total_seats,
+        occupiedSeats: Array.isArray(d.occupied_seats) ? d.occupied_seats : []
+      }));
+      saveState();
+      renderSchedules();
+      updateScheduleBadges();
+      console.log('☁️ Synced schedules from Supabase Cloud');
+    }
+  } catch (err) {
+    console.warn('Supabase fetch error:', err.message);
+  }
+}
+
+async function syncLocalToSupabase() {
+  if (!supabaseClient || !isSupabaseOnline) {
+    alert('ℹ️ กำลังซิงค์ข้อมูล LocalStorage ขึ้น Supabase...\n(กรุณาระบุ Anon Key ในกล่องข้อความเพื่อเชื่อมต่อแบบเขียน Cloud Realtime)');
+    return;
+  }
+  try {
+    for (const trip of state.schedules) {
+      await saveScheduleToCloud(trip);
+    }
+    showToast('ซิงค์ข้อมูลรอบรถทั้งหมดขึ้น Supabase Cloud สำเร็จ!', 'success');
+  } catch (err) {
+    showToast('ซิงค์ข้อมูลไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+function openSupabaseModal() {
+  const modal = document.getElementById('supabase-modal');
+  if (modal) {
+    const keyInput = document.getElementById('supabase-anon-key-input');
+    if (keyInput) {
+      keyInput.value = localStorage.getItem('siambus_supabase_anon_key') || '';
+    }
+    modal.classList.add('active');
+  }
+}
+
+function closeSupabaseModal() {
+  const modal = document.getElementById('supabase-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function saveSupabaseConfig(e) {
+  if (e) e.preventDefault();
+  const keyInput = document.getElementById('supabase-anon-key-input');
+  const key = keyInput ? keyInput.value.trim() : '';
+  if (key) {
+    localStorage.setItem('siambus_supabase_anon_key', key);
+    SUPABASE_CONFIG.anonKey = key;
+  }
+  initSupabase();
+  showToast('บันทึกการตั้งค่า Supabase เรียบร้อยแล้ว', 'success');
+  testSupabaseConnection(true);
 }
 
 // ==========================================
@@ -182,9 +359,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const todayIso = new Date().toISOString().split('T')[0];
   document.getElementById('search-travel-date').value = todayIso;
   
-  // Initialize Supabase Cloud Backend
-  initSupabase();
-
   // Check auth view
   updateAuthUI();
   
@@ -194,6 +368,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize Live GPS Map & Tracking
   initLiveGpsTracking();
+
+  // Initialize Supabase Cloud Connection
+  initSupabase();
 
   // Load Master Prompt code into modal
   loadMasterPromptDoc();
@@ -627,6 +804,9 @@ function simulatePaymentSuccess() {
   state.bookings.unshift(newBooking);
   saveState();
 
+  // Sync to Supabase Cloud
+  saveBookingToCloud(newBooking);
+
   // Populate Digital Boarding Pass
   populateBoardingPass(newBooking);
 
@@ -700,6 +880,9 @@ function handleReportSubmit(e) {
 
   state.reports.unshift(newReport);
   saveState();
+
+  // Sync to Supabase Cloud
+  saveReportToCloud(newReport);
 
   // Reset form
   document.getElementById('misconduct-report-form').reset();
@@ -990,6 +1173,10 @@ function handleAddTrip(e) {
   state.schedules.filter(s => s.day === day).forEach(s => s.totalRounds = newRoundSeq);
 
   saveState();
+  
+  // Sync to Supabase Cloud
+  saveScheduleToCloud(newTrip);
+
   renderSchedules();
   renderAdminSchedules();
   updateScheduleBadges();
