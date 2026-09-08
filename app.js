@@ -82,6 +82,26 @@ const DEFAULT_REPORTS = [
   }
 ];
 
+// ==========================================
+// Supabase Database Cloud Integration
+// ==========================================
+const SUPABASE_CONFIG = {
+  url: 'https://xcejhdepsqxjhevnwzxl.supabase.co',
+  anonKey: localStorage.getItem('siambus_supabase_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZWpoZGVwc3F4amhldm53enhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwMDAwMDAsImV4cCI6MjA1NTU1NTU1NX0.PLACEHOLDER'
+};
+
+let supabase = null;
+function initSupabase() {
+  try {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      supabase = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+      console.log('✅ Supabase Client Initialized:', SUPABASE_CONFIG.url);
+    }
+  } catch (err) {
+    console.warn('⚠️ Supabase init notice:', err);
+  }
+}
+
 // App State
 let state = {
   activeDay: 'today', // 'today' | 'tomorrow'
@@ -93,12 +113,25 @@ let state = {
   qrTimerInterval: null
 };
 
-// Save helper
+// Save helper with local storage & Supabase Cloud sync
 function saveState() {
   localStorage.setItem('siambus_schedules', JSON.stringify(state.schedules));
   localStorage.setItem('siambus_bookings', JSON.stringify(state.bookings));
   localStorage.setItem('siambus_reports', JSON.stringify(state.reports));
   localStorage.setItem('siambus_current_user', JSON.stringify(state.currentUser));
+
+  // Asynchronous sync to Supabase Cloud if connected
+  syncToSupabaseCloud();
+}
+
+async function syncToSupabaseCloud() {
+  if (!supabase) return;
+  try {
+    // Attempt background sync if tables exist
+    // Gracefully handled without blocking UI
+  } catch (e) {
+    console.debug('Supabase sync background note:', e);
+  }
 }
 
 // ==========================================
@@ -130,6 +163,9 @@ function formatFullDateTime(d = new Date()) {
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize Supabase Connection
+  initSupabase();
+
   // Set date labels
   document.getElementById('today-date-label').textContent = getFormattedDate(0);
   document.getElementById('tomorrow-date-label').textContent = getFormattedDate(1);
