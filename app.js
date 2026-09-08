@@ -82,26 +82,6 @@ const DEFAULT_REPORTS = [
   }
 ];
 
-// ==========================================
-// Supabase Database Cloud Integration
-// ==========================================
-const SUPABASE_CONFIG = {
-  url: 'https://xcejhdepsqxjhevnwzxl.supabase.co',
-  anonKey: localStorage.getItem('siambus_supabase_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjZWpoZGVwc3F4amhldm53enhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAwMDAwMDAsImV4cCI6MjA1NTU1NTU1NX0.PLACEHOLDER'
-};
-
-let supabase = null;
-function initSupabase() {
-  try {
-    if (window.supabase && typeof window.supabase.createClient === 'function') {
-      supabase = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
-      console.log('✅ Supabase Client Initialized:', SUPABASE_CONFIG.url);
-    }
-  } catch (err) {
-    console.warn('⚠️ Supabase init notice:', err);
-  }
-}
-
 // App State
 let state = {
   activeDay: 'today', // 'today' | 'tomorrow'
@@ -113,24 +93,55 @@ let state = {
   qrTimerInterval: null
 };
 
-// Save helper with local storage & Supabase Cloud sync
+// ==========================================
+// 1.1 Supabase Cloud Backend Configuration
+// ==========================================
+const SUPABASE_CONFIG = {
+  url: 'https://xcejhdepsqxjhevnwzxl.supabase.co',
+  anonKey: localStorage.getItem('siambus_supabase_key') || 'sb_publishable_anon_key',
+  client: null,
+  isConnected: false
+};
+
+// Initialize Supabase Client
+function initSupabase() {
+  try {
+    if (window.supabase && SUPABASE_CONFIG.url) {
+      SUPABASE_CONFIG.client = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+      SUPABASE_CONFIG.isConnected = true;
+      console.log('⚡ Supabase Client Connected:', SUPABASE_CONFIG.url);
+    }
+  } catch (err) {
+    console.warn('⚠️ Supabase init status:', err);
+  }
+}
+
+// Sync helper to Supabase (Bookings, Reports, Schedules)
+async function syncToSupabase(table, data) {
+  if (!SUPABASE_CONFIG.client || !SUPABASE_CONFIG.isConnected) return;
+  try {
+    const { error } = await SUPABASE_CONFIG.client.from(table).upsert(data);
+    if (error) {
+      console.warn(`Supabase sync note [${table}]:`, error.message);
+    } else {
+      console.log(`✅ Synced to Supabase [${table}]`);
+    }
+  } catch (err) {
+    console.warn(`Supabase sync exception [${table}]:`, err);
+  }
+}
+
+// Save helper
 function saveState() {
   localStorage.setItem('siambus_schedules', JSON.stringify(state.schedules));
   localStorage.setItem('siambus_bookings', JSON.stringify(state.bookings));
   localStorage.setItem('siambus_reports', JSON.stringify(state.reports));
   localStorage.setItem('siambus_current_user', JSON.stringify(state.currentUser));
 
-  // Asynchronous sync to Supabase Cloud if connected
-  syncToSupabaseCloud();
-}
-
-async function syncToSupabaseCloud() {
-  if (!supabase) return;
-  try {
-    // Attempt background sync if tables exist
-    // Gracefully handled without blocking UI
-  } catch (e) {
-    console.debug('Supabase sync background note:', e);
+  // Background sync with Supabase Cloud
+  if (SUPABASE_CONFIG.client) {
+    syncToSupabase('bookings', state.bookings);
+    syncToSupabase('reports', state.reports);
   }
 }
 
@@ -163,9 +174,6 @@ function formatFullDateTime(d = new Date()) {
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Supabase Connection
-  initSupabase();
-
   // Set date labels
   document.getElementById('today-date-label').textContent = getFormattedDate(0);
   document.getElementById('tomorrow-date-label').textContent = getFormattedDate(1);
@@ -174,6 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const todayIso = new Date().toISOString().split('T')[0];
   document.getElementById('search-travel-date').value = todayIso;
   
+  // Initialize Supabase Cloud Backend
+  initSupabase();
+
   // Check auth view
   updateAuthUI();
   
